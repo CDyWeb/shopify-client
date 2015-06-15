@@ -1,16 +1,16 @@
 <?php
 
-require '../vendor/autoload.php';
-require 'SimpleStorage.php';
+if (file_exists('../vendor/autoload.php')) require '../vendor/autoload.php';
+else if (file_exists('vendor/autoload.php')) require 'vendor/autoload.php';
 
-use \cdyweb\Shopify\Client;
+use \cdyweb\Shopify\Shopify;
 
 $config=array();
 if (file_exists('config.json')) {
     $config=json_decode(file_get_contents('config.json'),true);
 }
-$client = new Client('cdyweb', $config);
-$client->setTokenStorage(new SimpleStorage());
+$client = new Shopify('cdyweb', $config);
+$client->setTokenStorage(new \fkooman\OAuth\Client\SimpleStorage());
 
 if (isset($_GET['code'])) {
     $client->callback();

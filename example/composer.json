@@ -1,0 +1,6 @@
+{
+  "require": {
+    "cdyweb/shopify-client": "*",
+    "guzzle/guzzle": "~3.0"
+  }
+}

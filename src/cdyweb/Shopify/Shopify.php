@@ -3,6 +3,7 @@
 namespace cdyweb\Shopify;
 
 use ActiveResource\Connections\GuzzleConnection;
+use cdyweb\http\guzzle\Guzzle;
 use fkooman\OAuth\Client\Callback;
 use fkooman\OAuth\Client\Context;
 use fkooman\OAuth\Client\SessionStorage;
@@ -10,11 +11,10 @@ use fkooman\OAuth\Client\ShopifyClientConfig;
 use fkooman\OAuth\Client\Api;
 use fkooman\OAuth\Client\StorageInterface;
 use fkooman\OAuth\Client\AccessToken;
-use GuzzleHttp\Handler\CurlHandler;
-use GuzzleHttp\HandlerStack;
 use \InvalidArgumentException;
+use \RuntimeException;
 
-class Client {
+class Shopify {
 
     public static $CLIENT_ID = 'shopify-client';
 
@@ -80,23 +80,6 @@ class Client {
         $this->shopName = $shopName;
     }
 
-    private static function add_header(Client $that)
-    {
-        return function (callable $handler) use ($that) {
-            return function (
-                \GuzzleHttp\Psr7\Request $request,
-                array $options
-            ) use ($handler, $that) {
-                $token = $that->getAccessToken();
-                if ($token instanceof AccessToken) {
-                    $request = $request
-                        ->withHeader('X-Shopify-Access-Token', $token->getAccessToken())
-                        ->withHeader('Accept', 'application/json');
-                }
-                return $handler($request, $options);
-            };
-        };
-    }
 
     /**
      * @return \ActiveResource\Connections\GuzzleConnection
@@ -104,17 +87,10 @@ class Client {
     public function getConnection()
     {
         if (empty($this->connection)) {
-            $stack = new HandlerStack();
-            $stack->setHandler(new CurlHandler());
-            $stack->push(self::add_header($this));
-
-            $guzzle = new \GuzzleHttp\Client([
-                'verify'=>false,
-                'handler' => $stack,
-            ]);
+            $adapter = Guzzle::getAdapter();
 
             $this->connection = new GuzzleConnection("https://{$this->shopName}.myshopify.com");
-            $this->connection->setClient($guzzle);
+            $this->connection->setClient($adapter);
             $this->connection->setBasePath('/admin');
         }
         return $this->connection;
@@ -135,7 +111,8 @@ class Client {
     {
         if (empty($this->oauth)) {
             $connection = $this->getConnection();
-            $this->oauth = new Api(self::$CLIENT_ID, $this->getClientConfig(), $this->getTokenStorage(), $connection->getClient());
+            $httpClient = $connection->getClient();
+            $this->setOauth(new Api(self::$CLIENT_ID, $this->getClientConfig(), $this->getTokenStorage(), $httpClient));
         }
         return $this->oauth;
     }
@@ -146,6 +123,10 @@ class Client {
     public function setOauth($oauth)
     {
         $this->oauth = $oauth;
+        if ($this->hasAccessToken()) {
+            $connection = $this->getConnection();
+            $connection->getClient()->appendRequestHeader('X-Shopify-Access-Token',(string) $this->getAccessToken());
+        }
     }
 
     /**

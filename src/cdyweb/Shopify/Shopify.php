@@ -16,6 +16,14 @@ use \RuntimeException;
 
 class Shopify {
 
+    /**
+     * @var Shopify
+     */
+    protected static $instance = null;
+
+    /**
+     * @var string
+     */
     public static $CLIENT_ID = 'shopify-client';
 
     /**
@@ -48,6 +56,13 @@ class Shopify {
      */
     protected $context;
 
+    /**
+     * @return Shopify
+     */
+    public static function getInstance()
+    {
+        return self::$instance;
+    }
 
     /**
      * @param $shopName string
@@ -61,6 +76,7 @@ class Shopify {
         if (is_array($clientConfig) && isset($clientConfig['scope'])) {
             $this->setContext(new Context($clientConfig['client_id'], $clientConfig['scope']));
         }
+        self::$instance = $this;
         return $this;
     }
 

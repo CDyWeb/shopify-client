@@ -25,8 +25,8 @@ if (!$client->hasAccessToken()) {
     exit;
 }
 
-$pages = $client->getPages();
+$pages = \cdyweb\Shopify\Model\Page::find('all');
 foreach ($pages as $page) var_dump($page->getSchema()->getValues());
 
-$products = $client->getProducts();
+$products = \cdyweb\Shopify\Model\Product::find('all');
 foreach ($products as $product) var_dump($product->getSchema()->getValues());

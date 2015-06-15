@@ -2,6 +2,6 @@
 
 namespace cdyweb\Shopify\Model;
 
-class Page extends \ActiveResource\Base {
+class Page extends AbstractModel {
 
 }

@@ -20,8 +20,6 @@ $pdo = new PDO('mysql:host=localhost;dbname=test', 'test', '');
 $tokenStorage = new \cdyweb\Shopify\OAuth\PDOTokenStorage($pdo);
 //create the Shopify API client
 $client = new \cdyweb\Shopify\Shopify($config, $tokenStorage);
-//initialize the http connection
-$client->getConnection();
 
 //if the request is a shopify callback, a temporary "code" is provided in the query string
 if (isset($_GET['code'])) {

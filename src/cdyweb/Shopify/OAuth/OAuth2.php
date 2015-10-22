@@ -112,12 +112,16 @@ class OAuth2 {
         }
         $response = $http->post(
             'https://'.$this->clientConfig->shopname.'.myshopify.com/admin/oauth/access_token',
-            array(),
-            http_build_query(array(
+            array(
+                'Accept'=>'application/json'
+            ),
+            array(
+                'redirect_uri'=>$this->clientConfig->redirect_uri,
                 'client_id'=>$this->clientConfig->client_id,
                 'client_secret'=>$this->clientConfig->client_secret,
                 'code'=>$params['code'],
-            ))
+                'grant_type' => 'authorization_code'
+            )
         );
         $json = json_decode($response->getBody()->getContents(), true);
         if (!isset($json['access_token'])) {

@@ -4,4 +4,4 @@ example/access.state
 example/access.token
 example/config.json
 example/composer.lock
-tests/cdyweb/Shopify/OAuth/unit-testing.db
+unit-testing.db

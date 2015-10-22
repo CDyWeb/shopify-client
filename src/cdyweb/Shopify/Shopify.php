@@ -4,13 +4,8 @@ namespace cdyweb\Shopify;
 
 use ActiveResource\Connections\GuzzleConnection;
 use cdyweb\http\guzzle\Guzzle;
-use fkooman\OAuth\Client\Callback;
-use fkooman\OAuth\Client\Context;
-use fkooman\OAuth\Client\SessionStorage;
-use fkooman\OAuth\Client\ShopifyClientConfig;
-use fkooman\OAuth\Client\Api;
-use fkooman\OAuth\Client\StorageInterface;
-use fkooman\OAuth\Client\AccessToken;
+use cdyweb\Shopify\OAuth\OAuth2;
+use cdyweb\Shopify\OAuth\TokenStorage;
 use \InvalidArgumentException;
 use \RuntimeException;
 
@@ -27,34 +22,19 @@ class Shopify {
     public static $CLIENT_ID = 'shopify-client';
 
     /**
-     * @var string
-     */
-    protected $shopName;
-
-    /**
      * @var GuzzleConnection
      */
     protected $connection;
 
     /**
-     * @var Api
+     * @var OAuth2
      */
-    protected $oauth;
+    protected $auth;
 
     /**
-     * @var ShopifyClientConfig
+     * @var string
      */
-    protected $clientConfig;
-
-    /**
-     * @var StorageInterface
-     */
-    protected $tokenStorage;
-
-    /**
-     * @var Context
-     */
-    protected $context;
+    protected $shopName;
 
     /**
      * @return Shopify
@@ -67,15 +47,12 @@ class Shopify {
     /**
      * @param $shopName string
      */
-    public function __construct($shopName, $clientConfig=null) {
-        if (empty($shopName)) throw new InvalidArgumentException('shopName not provided');
-        $this->shopName = $shopName;
-        if ($clientConfig) {
-            $this->setClientConfig($clientConfig);
-        }
-        if (is_array($clientConfig) && isset($clientConfig['scope'])) {
-            $this->setContext(new Context($clientConfig['client_id'], $clientConfig['scope']));
-        }
+    public function __construct($clientConfig, $tokenStorage=null) {
+        if (empty($clientConfig)) throw new InvalidArgumentException('clientConfig not provided');
+        if (empty($clientConfig->shopname)) throw new InvalidArgumentException('shopname not provided');
+        if (empty($clientConfig->scope)) throw new InvalidArgumentException('scope not provided');
+        $this->shopName = $clientConfig->shopname;
+        $this->auth = new OAuth2($clientConfig, $tokenStorage);
         self::$instance = $this;
         return $this;
     }
@@ -89,15 +66,6 @@ class Shopify {
     }
 
     /**
-     * @param string $shopName
-     */
-    public function setShopName($shopName)
-    {
-        $this->shopName = $shopName;
-    }
-
-
-    /**
      * @return \ActiveResource\Connections\GuzzleConnection
      */
     public function getConnection()
@@ -108,6 +76,11 @@ class Shopify {
             $this->connection = new GuzzleConnection("https://{$this->shopName}.myshopify.com");
             $this->connection->setClient($adapter);
             $this->connection->setBasePath('/admin');
+
+            $accessToken = $this->getAuth()->getAccessToken();
+            if ($accessToken) {
+                $this->connection->getClient()->appendRequestHeader('X-Shopify-Access-Token', $accessToken);
+            }
         }
         return $this->connection;
     }
@@ -121,125 +94,54 @@ class Shopify {
     }
 
     /**
-     * @return \fkooman\OAuth\Client\Api
+     * @return OAuth2
      */
-    public function getOauth()
+    public function getAuth()
     {
-        if (empty($this->oauth)) {
-            $connection = $this->getConnection();
-            $httpClient = $connection->getClient();
-            $this->setOauth(new Api(self::$CLIENT_ID, $this->getClientConfig(), $this->getTokenStorage(), $httpClient));
-        }
-        return $this->oauth;
+        return $this->auth;
     }
 
     /**
-     * @param \fkooman\OAuth\Client\Api $oauth
+     * @param OAuth2 $auth
      */
-    public function setOauth($oauth)
+    public function setAuth($auth)
     {
-        $this->oauth = $oauth;
-        if ($this->hasAccessToken()) {
-            $connection = $this->getConnection();
-            $connection->getClient()->appendRequestHeader('X-Shopify-Access-Token',(string) $this->getAccessToken());
-        }
+        $this->auth = $auth;
     }
 
     /**
-     * @return ShopifyClientConfig
-     */
-    public function getClientConfig()
-    {
-        if (empty($this->clientConfig)) {
-            $this->clientConfig = new ShopifyClientConfig(['shopify'=>[]]);
-        }
-        return $this->clientConfig;
-    }
-
-    /**
-     * @param ShopifyClientConfig|array $clientConfig
-     */
-    public function setClientConfig($clientConfig)
-    {
-        if ($clientConfig instanceof ShopifyClientConfig) {
-            $this->clientConfig = $clientConfig;
-        }
-        if (is_array($clientConfig)) {
-            $this->clientConfig = new ShopifyClientConfig(['shopify'=>$clientConfig]);
-        }
-    }
-
-    /**
-     * @return StorageInterface
+     * @return TokenStorage
      */
     public function getTokenStorage()
     {
-        if (empty($this->tokenStorage)) {
-            $this->tokenStorage = new SessionStorage();
-        }
-        return $this->tokenStorage;
+        return $this->getAuth()->getTokenStorage();
     }
 
     /**
-     * @param StorageInterface $tokenStorage
+     * @param TokenStorage $tokenStorage
      */
-    public function setTokenStorage($tokenStorage)
+    public function setTokenStorage(TokenStorage $tokenStorage)
     {
-        $this->tokenStorage = $tokenStorage;
-    }
-
-    /**
-     * @return Context
-     */
-    public function getContext()
-    {
-        if (empty($this->context)) {
-            $this->context = new Context(
-                $this->getClientConfig()->getClientId(),
-                $this->getClientConfig()->getDefaultServerScope()
-            );
-        }
-        return $this->context;
-    }
-
-    /**
-     * @param Context $context
-     */
-    public function setContext($context)
-    {
-        $this->context = $context;
-    }
-
-    /**
-     * @return bool|AccessToken
-     * @throws \fkooman\OAuth\Client\Exception\ApiException
-     */
-    public function getAccessToken() {
-        return $this->getOauth()->getAccessToken($this->getContext());
+        $this->getAuth()->setTokenStorage($tokenStorage);
     }
 
     /**
      * @return bool
      */
     public function hasAccessToken() {
-        return $this->getAccessToken() instanceof AccessToken;
+        $accessToken = $this->getAuth()->getAccessToken();
+        return !empty($accessToken);
     }
 
     /**
      * @return string
-     * @throws \fkooman\OAuth\Client\Exception\ApiException
      */
     public function getAuthorizeUri() {
-        return $this->getOauth()->getAuthorizeUri($this->getContext());
+        return $this->getAuth()->getAuthorizeUri();
     }
 
-    /**
-     * @throws \fkooman\OAuth\Client\Exception\AuthorizeException
-     * @throws \fkooman\OAuth\Client\Exception\CallbackException
-     */
-    public function callback() {
-        $cb = new Callback(self::$CLIENT_ID, $this->getClientConfig(), $this->getTokenStorage(), $this->getConnection()->getClient());
-        $cb->handleCallback($_GET);
+    public function authorizeCallback() {
+        $this->getAuth()->callback($this->connection->getClient(), $_GET);
     }
 
     public function getPages() {

@@ -1,32 +1,48 @@
 <?php
 
-if (file_exists('../vendor/autoload.php')) require '../vendor/autoload.php';
-else if (file_exists('vendor/autoload.php')) require 'vendor/autoload.php';
+//load the composer classes
+require 'vendor/autoload.php';
 
-use \cdyweb\Shopify\Shopify;
+//define the Active Record classes
+class Shop extends \cdyweb\Shopify\Model\AbstractModel {};
+class Page extends \cdyweb\Shopify\Model\AbstractModel {};
+class Customer extends \cdyweb\Shopify\Model\AbstractModel {};
 
+//load config
 $config=array();
 if (file_exists('config.json')) {
-    $config=json_decode(file_get_contents('config.json'),true);
+    $config=json_decode(file_get_contents('config.json'));
 }
-$client = new Shopify('cdyweb', $config);
-$client->setTokenStorage(new \fkooman\OAuth\Client\SimpleStorage());
 
+//connect to database
+$pdo = new PDO('mysql:host=localhost;dbname=test', 'test', '');
+//create a database token storage
+$tokenStorage = new \cdyweb\Shopify\OAuth\PDOTokenStorage($pdo);
+//create the Shopify API client
+$client = new \cdyweb\Shopify\Shopify($config, $tokenStorage);
+//initialize the http connection
+$client->getConnection();
+
+//if the request is a shopify callback, a temporary "code" is provided in the query string
 if (isset($_GET['code'])) {
-    $client->callback();
+    //finalize the oauth process by requesting a permanent access token
+    $client->authorizeCallback();
+    //reload this page
     header('HTTP/1.1 302 Found');
     header('Location: '.$config['redirect_uri']);
     exit;
 }
 
+//if we haven't connected to Shopify yet, let's redirect to the Authorize page
 if (!$client->hasAccessToken()) {
     header('HTTP/1.1 302 Found');
     header('Location: '.$client->getAuthorizeUri());
     exit;
 }
 
-$pages = \cdyweb\Shopify\Model\Page::find('all');
+//at this point, oauth is successfully set up, so we can start using the API
+$pages = Page::find('all');
 foreach ($pages as $page) var_dump($page->getSchema()->getValues());
 
-$products = \cdyweb\Shopify\Model\Product::find('all');
-foreach ($products as $product) var_dump($product->getSchema()->getValues());
+$customers = Customer::find('all');
+foreach ($customers as $customer) var_dump($customer->getSchema()->getValues());

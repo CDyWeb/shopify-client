@@ -3,3 +3,4 @@
 example/access.state
 example/access.token
 example/config.json
+example/composer.lock

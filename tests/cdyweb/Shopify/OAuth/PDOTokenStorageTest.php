@@ -8,7 +8,8 @@ class PDOTokenStorageTest extends \PHPUnit_Framework_TestCase {
     private $st;
 
     public function setUp() {
-        $this->pdo = new PDO('mysql:host=localhost;dbname=test', 'test', '');
+        //$this->pdo = new PDO('mysql:host=localhost;dbname=test', 'test', '');
+        $this->pdo = new PDO('sqlite:./unit-testing.db');
         $this->st = new \cdyweb\Shopify\OAuth\PDOTokenStorage($this->pdo);
     }
 

@@ -17,11 +17,12 @@ class PDOTokenStorage implements TokenStorage {
     }
 
     public function checkDatabase() {
-        $arr=array();
-        if ($st = $this->pdo->query("describe `{$this->tableName}`")) {
-            $arr = $st->fetchAll(\PDO::FETCH_ASSOC);
+        try {
+            $this->pdo->query("select 1 from `{$this->tableName}` limit 1");
+            if ($this->pdo->errorCode()=='00000') return;
+            //return;
+        } catch (\Exception $ex) {
         }
-        if (count($arr)==5) return;
 
         $this->pdo->exec("DROP TABLE IF EXISTS `{$this->tableName}`");
         $this->pdo->exec("
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS `{$this->tableName}` (
   `scope` varchar(255) DEFAULT NULL,
   `nonce` varchar(255) DEFAULT NULL,
   `token` varchar(255) DEFAULT NULL,
-  `last_modified` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `last_modified` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`shopname`,`scope`)
 )");
     }
@@ -43,7 +44,11 @@ CREATE TABLE IF NOT EXISTS `{$this->tableName}` (
     public function setNonce($shopName, $scope, $nonce)
     {
         $this->pdo
-            ->prepare("replace into `{$this->tableName}` set `shopname`=:shopname, `scope`=:scope, `nonce`=:nonce")
+            ->prepare("delete from `{$this->tableName}` where `shopname`=:shopname and `scope`=:scope")
+            ->execute(array(':shopname'=>$shopName, ':scope'=>$scope));
+
+        $this->pdo
+            ->prepare("insert into `{$this->tableName}` (`shopname`, `scope`, `nonce`) values (:shopname, :scope, :nonce)")
             ->execute(array(':shopname'=>$shopName, ':scope'=>$scope, ':nonce'=>$nonce));
     }
 
@@ -80,7 +85,11 @@ CREATE TABLE IF NOT EXISTS `{$this->tableName}` (
     public function setAccessToken($shopName, $scope, $token)
     {
         $this->pdo
-            ->prepare("replace into `{$this->tableName}` set `shopname`=:shopname, `scope`=:scope, `token`=:token")
+            ->prepare("delete from `{$this->tableName}` where `shopname`=:shopname and `scope`=:scope")
+            ->execute(array(':shopname'=>$shopName, ':scope'=>$scope));
+
+        $this->pdo
+            ->prepare("insert into `{$this->tableName}` (`shopname`, `scope`, `token`) values (:shopname, :scope, :token)")
             ->execute(array(':shopname'=>$shopName, ':scope'=>$scope, ':token'=>$token));
     }
 

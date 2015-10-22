@@ -15,7 +15,7 @@
     "php": ">=5.3",
     "ext-curl": "*",
     "ext-json": "*",
-    "cdyweb/php-active-resource": "*"
+    "cdyweb/php-active-resource": ">=1.1"
   },
   "require-dev": {
     "phpunit/phpunit": "4.1.*",
